@@ -1,0 +1,12 @@
+{
+  "versionCode": 20903,
+  "versionName": "2.9.3",
+  "apk": "https://raw.githubusercontent.com/matisseduffield/dailies-releases/main/Dailies-v2.9.3.apk",
+  "size": 816101,
+  "sha256": "9eb7e068dbd36486dce1ef6b8c6c57602a12871a987e6afa43822559ad799532",
+  "publishedAt": "2026-11-07T11:12:49Z",
+  "notes": [
+    "How to play and the other panels now fit on phones with large text",
+    "Toolbars, dates and Splice words stay on screen with large text"
+  ]
+}
