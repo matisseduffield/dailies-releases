@@ -1,0 +1,11 @@
+{
+  "versionCode": 21300,
+  "versionName": "2.13.0",
+  "apk": "https://raw.githubusercontent.com/matisseduffield/dailies-releases/main/Dailies-v2.13.0.apk",
+  "size": 838254,
+  "sha256": "9d87c811f6a8ba123aa66af99b70ec5955e2b78ca652e83c37a759a865184a3c",
+  "publishedAt": "2026-11-12T23:11:14Z",
+  "notes": [
+    "The home screen shows your last two weeks and how many days in a row you've played"
+  ]
+}
