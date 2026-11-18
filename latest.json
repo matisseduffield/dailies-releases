@@ -1,0 +1,13 @@
+{
+  "versionCode": 21800,
+  "versionName": "2.18.0",
+  "apk": "https://raw.githubusercontent.com/matisseduffield/dailies-releases/main/Dailies-v2.18.0.apk",
+  "size": 885376,
+  "sha256": "f9f3d0cd240e777d616f968b5d910ba4f4965508e4530de98261d0ad2eb56c5e",
+  "publishedAt": "2026-11-18T12:25:10Z",
+  "notes": [
+    "Shunt: the pieces are now cars and trucks, blue for two squares and coral for three",
+    "Shunt: Practice, with fresh boards whenever you like",
+    "Shunt: moves are now unlimited. Turn on Hard mode in How to play to lose at ten over par, as before"
+  ]
+}

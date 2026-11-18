@@ -1,0 +1,528 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="referrer" content="no-referrer">
+<!-- ios:cut -->
+<meta name="theme-color" content="#F0F1F3" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#171719" media="(prefers-color-scheme: dark)">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Dailies">
+<meta name="description" content="Dailies: a few small daily games, new every day. Free, no ads.">
+<!-- ios:end -->
+<title>Dailies</title>
+<!-- ios:cut -->
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22><rect x=%223%22 y=%223%22 width=%227.6%22 height=%227.6%22 rx=%221.9%22 fill=%22%232C53C4%22/><rect x=%2212.2%22 y=%223%22 width=%227.6%22 height=%227.6%22 rx=%221.9%22 fill=%22%232C53C4%22/><rect x=%2221.4%22 y=%223%22 width=%227.6%22 height=%227.6%22 rx=%221.9%22 fill=%22%232C53C4%22/><rect x=%223%22 y=%2212.2%22 width=%227.6%22 height=%227.6%22 rx=%221.9%22 fill=%22%232C53C4%22/><rect x=%2212.2%22 y=%2212.2%22 width=%227.6%22 height=%227.6%22 rx=%221.9%22 fill=%22%23F4C52E%22/><rect x=%2221.4%22 y=%2212.2%22 width=%227.6%22 height=%227.6%22 rx=%221.9%22 fill=%22%23A9B8E6%22/><rect x=%223%22 y=%2221.4%22 width=%227.6%22 height=%227.6%22 rx=%221.9%22 fill=%22%23A9B8E6%22/><rect x=%2212.2%22 y=%2221.4%22 width=%227.6%22 height=%227.6%22 rx=%221.9%22 fill=%22%23A9B8E6%22/><rect x=%2221.4%22 y=%2221.4%22 width=%227.6%22 height=%227.6%22 rx=%221.9%22 fill=%22%23A9B8E6%22/></svg>">
+<!-- ios:end -->
+<link rel="preload" href="fonts/hanken-grotesk-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="shared.css?v=5">
+<style>
+/* The list runs past a short screen: the page grows, so the bottom padding stays clear of the home bar */
+.app { height: auto; min-height: 100dvh; padding-left: max(18px, env(safe-area-inset-left, 0px)); padding-right: max(18px, env(safe-area-inset-right, 0px)); }
+/* The day, plain on the page as a calculator shows its sum: the date as its label, how far
+   along you are as its value, and at the right the last week as a row of dots, today last:
+   white for a day with every game played, grey for some, dim for none. */
+.today { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 10px 16px; margin-top: 22px; padding: 0 6px; }
+.today > div:first-child { min-width: 0; }
+.today-label { font-size: 1rem; line-height: 1.4; color: var(--muted); }
+.today h2 { margin-top: 2px; font-size: clamp(1.65rem, 8vw, 2.15rem); font-weight: 400; letter-spacing: -.02em; line-height: 1.2; white-space: nowrap; }
+.today h2 b { font-weight: 400; color: var(--accent); }
+.days { margin-bottom: 15px; }
+.days { flex: none; display: flex; gap: 7px; }
+.days i { width: 6px; height: 6px; border-radius: 50%; background: var(--line-strong); }
+.days i.some { background: var(--muted); }
+.days i.all { background: var(--ink); }
+
+/* The games, three to a row and no tile behind them: its picture, its name, and once it is
+   begun, where it stands today: "Started" in grey, then how it went, green if won and red if lost. */
+.games { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 26px 8px; margin-top: 38px; }
+.game { display: grid; justify-items: center; align-content: start; padding-bottom: 4px; color: inherit; text-decoration: none; text-align: center; }
+.game svg { width: 62px; height: 62px; margin-bottom: 10px; }
+.game:active { opacity: .6; }
+@media (hover: hover) { .game:hover { opacity: .8; } }
+/* A short screen: the rows sit closer, so all four are in view with their results.
+   The pictures stay the size they are. */
+@media (max-height: 700px) {
+  .today { margin-top: 10px; }
+  .games { gap: 14px 8px; margin-top: 20px; }
+  .game { padding-bottom: 0; }
+  .game svg { margin-bottom: 6px; }
+}
+.game b { font-size: 1rem; font-weight: 400; line-height: 1.3; }
+.game span { font-size: .82rem; line-height: 1.3; color: var(--muted); overflow-wrap: anywhere; }
+.game.done > span { color: var(--pos); }
+.game.done.lost > span { color: var(--neg); }
+/* Said to a screen reader, as the colour or a picture can't be */
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+
+/* More: a small dark panel that drops from its button, a picture and a word for each thing */
+.menu { position: absolute; z-index: 5; top: calc(68px + env(safe-area-inset-top, 0px)); right: max(18px, env(safe-area-inset-right, 0px)); min-width: 192px; max-width: calc(100% - 36px); padding: 9px 8px; background: var(--pop); border: 1px solid var(--pop-line); border-radius: 28px; box-shadow: 0 12px 32px rgba(0, 0, 0, .4); transform-origin: top right; animation: pop .14s ease-out; }
+@keyframes pop { from { opacity: 0; transform: scale(.94); } }
+.menu-row { display: flex; align-items: center; gap: 15px; width: 100%; min-height: 46px; padding: 0 20px 0 16px; background: none; border: 0; border-radius: 18px; font-size: 1.06rem; text-align: left; white-space: nowrap; }
+.menu-row:active { background: var(--key); }
+@media (hover: hover) { .menu-row:not(:disabled):hover { background: var(--key); } }
+.menu-row:disabled { opacity: .38; cursor: default; }
+.menu-row svg { flex: none; }
+.menu-row span { flex: 1; }
+/* The reminder is ticked while it's on */
+.menu-row .tick { display: none; color: var(--accent); }
+.menu-row[aria-checked="true"] .tick { display: block; }
+/* ios:cut */
+.menu-row[data-state="available"] span { color: var(--accent); }
+/* An update is waiting: a dot on the button */
+#menuBtn[data-state="available"]::after { content: ""; position: absolute; top: 9px; right: 9px; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
+/* ios:end */
+@media (prefers-reduced-motion: reduce) { .menu { animation: none; } }
+
+/* ios:cut */
+.install-hint { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 6px 0 0; font-size: .84rem; line-height: 1.35; color: var(--muted); }
+.install-hint button { flex: none; width: 44px; height: 44px; margin: -10px -12px -10px 0; padding: 0; background: none; border: 0; font-size: 1.2rem; color: var(--muted); }
+/* ios:end */
+
+/* About: who this is, then one rounded list, a row for each thing, with a hairline between them */
+/* What this is, on a card of its own: the icon, with the name and a line about it beside it */
+.about-id { display: grid; grid-template-columns: auto 1fr; align-items: center; column-gap: 16px; row-gap: 2px; padding: 18px 20px; background: var(--surface); border-radius: 24px; text-align: left; }
+.about-id img { grid-row: 1 / 3; border-radius: 13px; }
+.about-id .about-name { align-self: end; font-size: 1.25rem; font-weight: 500; letter-spacing: -.01em; line-height: 1.25; }
+.about-id .about-tag { align-self: start; font-size: .95rem; line-height: 1.35; color: var(--muted); }
+/* About is a page of its own: it fills the screen and Back leaves it */
+dialog.sheet.aboutpg { width: 100%; max-width: none; height: 100dvh; max-height: 100dvh; margin: 0; padding-top: env(safe-area-inset-top, 0px); border-radius: 0; background: var(--bg); }
+dialog.sheet.aboutpg[open] { display: flex; flex-direction: column; animation: none; }
+.aboutpg > * { width: 100%; max-width: 480px; margin-inline: auto; }
+.aboutpg .sheet-head { justify-content: flex-start; gap: 10px; padding: 14px 18px 6px; background: var(--bg); }
+.aboutpg .sheet-head h2 { font-size: 1.35rem; font-weight: 500; }
+.aboutpg .sheet-body { flex: 1; display: flex; flex-direction: column; gap: 14px; padding: 14px 18px max(22px, env(safe-area-inset-bottom, 0px)); }
+.aboutpg .about-foot { margin-top: auto; }
+.about-links { display: grid; padding: 0 20px; background: var(--surface); border-radius: 24px; }
+/* A card with nothing to show (the version, on a page that has none) isn't drawn */
+.about-links:not(:has(> .about-row:not([hidden]))) { display: none; }
+.about-legal { display: contents; }
+.about-links .about-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 56px; margin: 0; padding: 12px 0; background: none; border: 0; font-size: 1.06rem; line-height: 1.3; color: var(--ink); text-align: left; text-decoration: none; }
+.about-links > :not([hidden]) ~ .about-row, .about-legal .about-row { border-top: 1px solid var(--line); }
+.about-row small { display: block; margin-top: 2px; font-size: .9rem; color: var(--muted); }
+.about-row > span + span { flex: none; font-size: 1rem; color: var(--muted); }
+.about-row > span + span:empty { display: none; }
+a.about-row::after { content: ""; flex: none; width: 9px; height: 9px; margin-right: 3px; border: solid var(--line-strong); border-width: 1.5px 1.5px 0 0; transform: rotate(45deg); }
+.sheet-body .about-foot { text-align: center; font-size: .8rem; color: var(--muted); }
+
+/* ios:cut */
+/* App update (Android app only) */
+.update { display: grid; gap: 14px; margin-top: 8px; padding: 20px; background: var(--surface); border-radius: 24px; }
+.update-title { font-weight: 600; line-height: 1.3; }
+.update-sub, .update-msg { font-size: .84rem; color: var(--muted); }
+.update-notes { margin: 0; padding: 0 0 0 16px; font-size: .88rem; line-height: 1.4; }
+.update-progress { display: flex; align-items: center; gap: 12px; min-height: 46px; }
+.update-track { flex: 1; height: 6px; border-radius: 3px; background: var(--accent-soft); overflow: hidden; }
+.update-track span { display: block; height: 100%; width: 0; border-radius: 3px; background: var(--accent); transition: width .2s; }
+.update-pct { min-width: 3.2ch; text-align: right; font-size: .86rem; font-weight: 600; }
+@media (prefers-reduced-motion: reduce) { .update-track span { transition: none; } }
+/* ios:end */
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="top">
+      <div class="brand">
+        <svg width="26" height="26" viewBox="0 0 32 32" aria-hidden="true"><rect x="3" y="3" width="7.6" height="7.6" rx="1.9" fill="#2C53C4"/><rect x="12.2" y="3" width="7.6" height="7.6" rx="1.9" fill="#2C53C4"/><rect x="21.4" y="3" width="7.6" height="7.6" rx="1.9" fill="#2C53C4"/><rect x="3" y="12.2" width="7.6" height="7.6" rx="1.9" fill="#2C53C4"/><rect x="12.2" y="12.2" width="7.6" height="7.6" rx="1.9" fill="#F4C52E"/><rect x="21.4" y="12.2" width="7.6" height="7.6" rx="1.9" fill="#A9B8E6"/><rect x="3" y="21.4" width="7.6" height="7.6" rx="1.9" fill="#A9B8E6"/><rect x="12.2" y="21.4" width="7.6" height="7.6" rx="1.9" fill="#A9B8E6"/><rect x="21.4" y="21.4" width="7.6" height="7.6" rx="1.9" fill="#A9B8E6"/></svg>
+        <h1 class="mark">Dailies</h1>
+      </div>
+      <div class="top-right">
+        <button class="icon-btn" id="menuBtn" type="button" aria-label="More" aria-haspopup="menu" aria-expanded="false" aria-controls="menu"><svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><circle cx="10" cy="3.6" r="1.7"/><circle cx="10" cy="10" r="1.7"/><circle cx="10" cy="16.4" r="1.7"/></svg></button>
+      </div>
+    </div>
+  </header>
+  <div class="menu" id="menu" role="menu" hidden>
+    <button class="menu-row" id="shareAll" type="button" role="menuitem" disabled><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V3.5M7.5 8 12 3.5 16.5 8M5 13v5.5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V13"/></svg><span id="shareLabel">Share today</span></button>
+    <button class="menu-row" id="remindToggle" type="button" role="menuitemcheckbox" aria-checked="false" hidden><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 10a6 6 0 0 1 12 0c0 4.5 1.6 6 2 6.5H4c.4-.5 2-2 2-6.5ZM10 20a2.2 2.2 0 0 0 4 0"/></svg><span id="remindText">Remind me at 6 pm</span><svg class="tick" width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 10.5 4 4 8-9"/></svg></button>
+    <button class="menu-row" id="version" type="button" role="menuitem"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5.5"/><circle cx="12" cy="7.7" r=".5" fill="currentColor"/></svg><span id="versionLabel">About</span></button>
+  </div>
+
+  <!-- ios:cut -->
+  <section class="update" id="updateCard" aria-label="App update" hidden>
+    <div>
+      <p class="update-title" id="updateTitle">Update available</p>
+      <p class="update-sub" id="updateSub"></p>
+    </div>
+    <ul class="update-notes" id="updateNotes" hidden></ul>
+    <p class="update-msg" id="updateMsg" hidden></p>
+    <div class="update-progress" id="updateProgress" hidden>
+      <div class="update-track"><span id="updateBar"></span></div>
+      <span class="update-pct" id="updatePct">0%</span>
+    </div>
+    <div class="actions" id="updateActions">
+      <button class="btn btn-secondary" id="updateLater" type="button">Not now</button>
+      <button class="btn btn-primary" id="updateGo" type="button">Update</button>
+    </div>
+  </section>
+
+  <p class="install-hint" id="installHint" hidden><span>Keep Dailies on your iPhone: tap Share, then Add to Home Screen.</span><button type="button" aria-label="Dismiss">×</button></p>
+  <!-- ios:end -->
+  <main>
+    <div class="today">
+      <div>
+        <p class="today-label" id="date"></p>
+        <h2 id="progress"></h2>
+      </div>
+      <div class="days" id="days" role="img" hidden></div>
+    </div>
+    <nav class="games" id="games" aria-label="Today's games"></nav>
+  </main>
+</div>
+
+<!-- About: the version, and the way to the policy, the terms and us -->
+<dialog class="sheet aboutpg" id="aboutSheet" aria-labelledby="aboutTitle">
+  <div class="sheet-head">
+    <button class="icon-btn" type="button" data-close aria-label="Back"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12H3M10.5 4.5 3 12l7.5 7.5"/></svg></button>
+    <h2 id="aboutTitle" tabindex="-1" autofocus>About</h2>
+  </div>
+  <div class="sheet-body">
+    <div class="about-id">
+      <img src="icons/icon-192.png" width="52" height="52" alt="" onerror="this.hidden=true">
+      <p class="about-name">Dailies</p>
+      <p class="about-tag">Ten small puzzles, new every day.</p>
+    </div>
+    <div class="about-links">
+      <p class="about-row" id="aboutVer" hidden></p>
+      <!-- ios:cut -->
+      <button class="about-row" type="button" id="aboutCheck" hidden><span>Check for updates</span><span id="aboutNote" aria-live="polite"></span></button>
+      <!-- ios:end -->
+    </div>
+    <div class="about-links">
+      <a class="about-row" href="mailto:support@teloone.au?subject=Dailies"><span>Contact support<small>support@teloone.au</small></span></a>
+      <div class="about-legal"><a class="about-row" href="https://teloone.au/apps/dailies/privacy/" rel="noreferrer">Privacy policy</a><a class="about-row" href="https://teloone.au/apps/dailies/terms/" rel="noreferrer">Terms of use</a></div>
+      <!-- ios:cut -->
+      <a class="about-row" id="getApp" href="/app" hidden>Get the Android app</a>
+      <!-- ios:end -->
+    </div>
+    <p class="about-foot">Made in Adelaide by Telo One</p>
+  </div>
+</dialog>
+
+<script src="clock.js?v=4"></script>
+<script src="today.js?v=5"></script>
+<!-- ios:cut -->
+<script src="pwa.js"></script>
+<!-- ios:end -->
+<script>
+(() => {
+  // Every game in the hub: its folder, its name and a line about it. A game
+  // tells the hub how today went by saving { date, text, lost } as hub.<id>.
+  const SLUG = '<rect width="64" height="64" rx="14" fill="#1F6F54"/><g transform="translate(13.5 3.5) scale(.57)"><path d="M43 29 38 13M52 28l4-16" stroke="#F4C52E" stroke-width="4.5" stroke-linecap="round"/><path fill="#F4C52E" d="M3 53C3 48 12 47 19 45 27 43 30 35 36 30 42 25 54 25 58 33 61 39 60 48 55 52 53 54 50 55 46 55H7C4 55 3 54 3 53Z"/><g fill="#D99F14"><circle cx="24" cy="49.5" r="2.4"/><circle cx="33.5" cy="44" r="3"/><circle cx="14" cy="51" r="1.7"/><circle cx="37" cy="51" r="1.6"/></g><path d="M43 39.5Q50 48 57.5 38" fill="none" stroke="#17181B" stroke-width="2.6" stroke-linecap="round"/><path fill="#EE6A7C" stroke="#17181B" stroke-width="1.6" stroke-linejoin="round" d="M47.5 43.6c.3 4.6 1.8 7 4 6.8 2.1-.2 3-3 2.4-7.4"/><g stroke="#17181B" stroke-width="1.8"><circle cx="38" cy="11" r="7.4" fill="#fff"/><circle cx="56.5" cy="10" r="7.4" fill="#fff"/></g><circle cx="40.4" cy="13.2" r="3.1" fill="#17181B"/><circle cx="54.4" cy="7.8" r="3.1" fill="#17181B"/></g><rect x="7" y="41" width="11.6" height="11.6" rx="2.4" fill="#FFFFFF"/><text x="12.8" y="50.6" font-size="10" font-weight="600" font-family="Hanken Grotesk,Segoe UI,sans-serif" text-anchor="middle" fill="#17181B">S</text><rect x="19.7" y="41" width="11.6" height="11.6" rx="2.4" fill="#FFFFFF"/><text x="25.5" y="50.6" font-size="10" font-weight="600" font-family="Hanken Grotesk,Segoe UI,sans-serif" text-anchor="middle" fill="#17181B">L</text><rect x="32.4" y="41" width="11.6" height="11.6" rx="2.4" fill="#FFFFFF"/><text x="38.2" y="50.6" font-size="10" font-weight="600" font-family="Hanken Grotesk,Segoe UI,sans-serif" text-anchor="middle" fill="#17181B">U</text><rect x="45.099999999999994" y="41" width="11.6" height="11.6" rx="2.4" fill="#FFFFFF"/><text x="50.89999999999999" y="50.6" font-size="10" font-weight="600" font-family="Hanken Grotesk,Segoe UI,sans-serif" text-anchor="middle" fill="#17181B">G</text>';
+  const BULB = '<rect width="64" height="64" rx="14" fill="#232C66"/><path fill="#FFCF33" d="M32 6.5a13.5 13.5 0 0 0-8.1 24.3c2 1.6 2.7 3.3 2.7 5.2h10.8c0-1.9.7-3.6 2.7-5.2A13.5 13.5 0 0 0 32 6.5Z"/><rect x="27.2" y="33.6" width="9.6" height="4" rx="2" fill="#FFFFFF"/><rect x="7" y="43" width="9.6" height="9.6" rx="2" fill="#7C84A8"/><rect x="18.4" y="44.2" width="7.2" height="7.2" rx="1" fill="none" stroke="#85A2FF" stroke-width="2.4"/><rect x="27.4" y="43" width="9.6" height="9.6" rx="2" fill="#7C84A8"/><rect x="37.6" y="43" width="9.6" height="9.6" rx="2" fill="#85A2FF"/><rect x="47.8" y="43" width="9.6" height="9.6" rx="2" fill="#85A2FF"/>';
+  const BARS = '<rect width="64" height="64" rx="14" fill="#C2407A"/><rect x="9" y="9" width="9.5" height="9.5" rx="2.2" fill="#FFCF33"/><rect x="20.5" y="9" width="9.5" height="9.5" rx="2.2" fill="#FFCF33"/><rect x="9" y="20.5" width="9.5" height="9.5" rx="2.2" fill="#FFCF33"/><rect x="20.5" y="20.5" width="9.5" height="9.5" rx="2.2" fill="#FFCF33"/><rect x="34" y="9" width="9.5" height="9.5" rx="2.2" fill="#FFFFFF"/><rect x="45.5" y="9" width="9.5" height="9.5" rx="2.2" fill="#FFFFFF"/><rect x="34" y="20.5" width="9.5" height="9.5" rx="2.2" fill="#FFFFFF"/><rect x="45.5" y="20.5" width="9.5" height="9.5" rx="2.2" fill="#FFFFFF"/><rect x="9" y="34" width="9.5" height="9.5" rx="2.2" fill="#8FE3B4"/><rect x="20.5" y="34" width="9.5" height="9.5" rx="2.2" fill="#8FE3B4"/><rect x="9" y="45.5" width="9.5" height="9.5" rx="2.2" fill="#8FE3B4"/><rect x="20.5" y="45.5" width="9.5" height="9.5" rx="2.2" fill="#8FE3B4"/><rect x="34" y="34" width="9.5" height="9.5" rx="2.2" fill="#BFD2F8"/><rect x="45.5" y="34" width="9.5" height="9.5" rx="2.2" fill="#BFD2F8"/><rect x="34" y="45.5" width="9.5" height="9.5" rx="2.2" fill="#BFD2F8"/><rect x="45.5" y="45.5" width="9.5" height="9.5" rx="2.2" fill="#BFD2F8"/>';
+  const RINGS = '<rect width="64" height="64" rx="14" fill="#E5533D"/><text x="32" y="31" font-size="24" font-weight="600" font-family="Hanken Grotesk,Segoe UI,sans-serif" text-anchor="middle" fill="#FFFFFF">578</text><rect x="9" y="38" width="14" height="14" rx="3" fill="#FFFFFF"/><text x="16" y="49.4" font-size="14" font-weight="600" font-family="Hanken Grotesk,Segoe UI,sans-serif" text-anchor="middle" fill="#17181B">+</text><rect x="25" y="38" width="14" height="14" rx="3" fill="#FFFFFF"/><text x="32" y="49.4" font-size="14" font-weight="600" font-family="Hanken Grotesk,Segoe UI,sans-serif" text-anchor="middle" fill="#17181B">×</text><rect x="41" y="38" width="14" height="14" rx="3" fill="#FFFFFF"/><text x="48" y="49.4" font-size="14" font-weight="600" font-family="Hanken Grotesk,Segoe UI,sans-serif" text-anchor="middle" fill="#17181B">÷</text>';
+  const GRID = '<rect width="64" height="64" rx="14" fill="#2C53C4"/><rect x="10" y="10" width="44" height="44" rx="4" fill="#17181B"/><rect x="11.4" y="11.4" width="9.7" height="9.7" rx="1" fill="#FFFFFF"/><rect x="21.9" y="11.4" width="9.7" height="9.7" rx="1" fill="#FFFFFF"/><rect x="32.4" y="11.4" width="9.7" height="9.7" rx="1" fill="#FFFFFF"/><rect x="11.4" y="21.9" width="9.7" height="9.7" rx="1" fill="#FFFFFF"/><rect x="32.4" y="21.9" width="9.7" height="9.7" rx="1" fill="#FFFFFF"/><rect x="42.9" y="21.9" width="9.7" height="9.7" rx="1" fill="#FFFFFF"/><rect x="11.4" y="32.4" width="9.7" height="9.7" rx="1" fill="#BFD2F8"/><rect x="21.9" y="32.4" width="9.7" height="9.7" rx="1" fill="#FFCF33"/><rect x="32.4" y="32.4" width="9.7" height="9.7" rx="1" fill="#BFD2F8"/><rect x="42.9" y="32.4" width="9.7" height="9.7" rx="1" fill="#BFD2F8"/><rect x="21.9" y="42.9" width="9.7" height="9.7" rx="1" fill="#FFFFFF"/><rect x="32.4" y="42.9" width="9.7" height="9.7" rx="1" fill="#FFFFFF"/><rect x="42.9" y="42.9" width="9.7" height="9.7" rx="1" fill="#FFFFFF"/>';
+  const WEAVE = '<rect width="64" height="64" rx="14" fill="#12838E"/><rect x="7" y="32" width="11.6" height="11.6" rx="2.4" fill="#FFFFFF"/><text x="12.8" y="41.8" font-size="10.4" font-weight="600" font-family="Hanken Grotesk,Segoe UI,sans-serif" text-anchor="middle" fill="#17181B">M</text><rect x="19.7" y="32" width="11.6" height="11.6" rx="2.4" fill="#FFCF33"/><text x="25.5" y="41.8" font-size="10.4" font-weight="600" font-family="Hanken Grotesk,Segoe UI,sans-serif" text-anchor="middle" fill="#17181B">N</text><rect x="32.4" y="32" width="11.6" height="11.6" rx="2.4" fill="#FFCF33"/><text x="38.2" y="41.8" font-size="10.4" font-weight="600" font-family="Hanken Grotesk,Segoe UI,sans-serif" text-anchor="middle" fill="#17181B">E</text><rect x="45.099999999999994" y="32" width="11.6" height="11.6" rx="2.4" fill="#FFFFFF"/><text x="50.89999999999999" y="41.8" font-size="10.4" font-weight="600" font-family="Hanken Grotesk,Segoe UI,sans-serif" text-anchor="middle" fill="#17181B">D</text><path d="M25.5,27.5C25.5,14 38.5,14 38.5,27.5" fill="none" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round"/><path d="M21.6,24L25.5,28.5L29.4,24M34.6,24L38.5,28.5L42.4,24" fill="none" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>';
+  const ROWS = '<rect width="64" height="64" rx="14" fill="#6A48C8"/><rect x="8" y="9" width="40" height="13" rx="3" fill="#FFFFFF"/><text x="28" y="19.2" font-size="10.5" font-weight="600" font-family="Hanken Grotesk,Segoe UI,sans-serif" text-anchor="middle" fill="#1D7548">1958</text><rect x="16" y="25.5" width="40" height="13" rx="3" fill="#FFCF33"/><text x="36" y="35.7" font-size="10.5" font-weight="600" font-family="Hanken Grotesk,Segoe UI,sans-serif" text-anchor="middle" fill="#17181B">????</text><rect x="8" y="42" width="40" height="13" rx="3" fill="#FFFFFF"/><text x="28" y="52.2" font-size="10.5" font-weight="600" font-family="Hanken Grotesk,Segoe UI,sans-serif" text-anchor="middle" fill="#1D7548">1984</text>';
+  const ROUTE = '<rect width="64" height="64" rx="14" fill="#3C9BE0"/><path d="M8,9L30,7L27,23L9,30Z" fill="#CFE6F7" stroke="#3C9BE0" stroke-width="2.2" stroke-linejoin="round"/><path d="M30,38L42,42L56,29L57,56L27,57Z" fill="#CFE6F7" stroke="#3C9BE0" stroke-width="2.2" stroke-linejoin="round"/><path d="M9,30L26,22L29,41L27,57L8,55Z" fill="#FFCF33" stroke="#3C9BE0" stroke-width="2.2" stroke-linejoin="round"/><path d="M26,22L46,27L45,47L29,41Z" fill="#2FA36B" stroke="#3C9BE0" stroke-width="2.2" stroke-linejoin="round"/><path d="M30,7L57,9L56,31L46,27L26,22Z" fill="#232C66" stroke="#3C9BE0" stroke-width="2.2" stroke-linejoin="round"/><path d="M18,44L37,34L44,17" fill="none" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><circle cx="18" cy="44" r="4" fill="#FFFFFF"/><circle cx="44" cy="17" r="4" fill="#FFFFFF"/>';
+  const TREE = '<rect width="64" height="64" rx="14" fill="#C8682A"/><path d="M32,22C32,30 18,29 18,38M32,22C32,30 46,29 46,38" fill="none" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round" opacity=".9"/><rect x="19" y="10" width="26" height="13" rx="6.5" fill="#FFCF33"/><text x="32" y="19.6" font-size="8.4" font-weight="600" font-family="Hanken Grotesk,Segoe UI,sans-serif" text-anchor="middle" fill="#17181B">SUN</text><rect x="5" y="38" width="26" height="13" rx="6.5" fill="#FFFFFF"/><text x="18" y="47.6" font-size="8.4" font-weight="600" font-family="Hanken Grotesk,Segoe UI,sans-serif" text-anchor="middle" fill="#17181B">SET</text><rect x="33" y="38" width="26" height="13" rx="6.5" fill="#FFFFFF"/><text x="46" y="47.6" font-size="8.4" font-weight="600" font-family="Hanken Grotesk,Segoe UI,sans-serif" text-anchor="middle" fill="#17181B">RISE</text>';
+  const TRAY = '<rect width="64" height="64" rx="14" fill="#5C6F94"/><rect x="7" y="7" width="50" height="50" rx="8" fill="#27314A"/><rect x="50" y="20" width="14" height="12" fill="#27314A"/><rect x="9.5" y="9.5" width="21.5" height="10" rx="3" fill="#AEBBD6"/><rect x="32.5" y="9.5" width="10" height="21.5" rx="3" fill="#FFFFFF"/><rect x="9.5" y="21" width="21.5" height="10" rx="3" fill="#FFCF33"/><path d="M16.5 23.4 19 26l-2.5 2.6M21.5 23.4 24 26l-2.5 2.6" fill="none" stroke="#17181B" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><rect x="44" y="32.5" width="10" height="21.5" rx="3" fill="#AEBBD6"/><rect x="9.5" y="44" width="21.5" height="10" rx="3" fill="#FFFFFF"/>';
+  const GAMES = [
+    { id: 'slugle', name: 'Slugle', line: 'Turn today’s word into SLUG', icon: SLUG },
+    { id: 'hunch', name: 'Hunch', line: 'Find the hidden word in six tries', icon: BULB },
+    { id: 'sorted', name: 'Sorted', line: 'Find four groups of four words', icon: BARS },
+    { id: 'reach', name: 'Reach', line: 'Hit the target with six numbers', icon: RINGS },
+    { id: 'cluey', name: 'Cluey', line: 'A small crossword, slyer each day', icon: GRID },
+    { id: 'mend', name: 'Mend', line: 'Swap letters back into words', icon: WEAVE },
+    { id: 'dated', name: 'Dated', line: 'Put history in order, blind', icon: ROWS },
+    { id: 'overland', name: 'Overland', line: 'Cross the map, border by border', icon: ROUTE },
+    { id: 'splice', name: 'Splice', line: 'Link words into a tree of phrases', icon: TREE },
+    // since: the day a game came out, for one added after the rest. A day before it
+    // with every other game played still counts as a full day in the week's dots.
+    // Shunt's is a week after its epoch (shunt/days.js), which a test holds it to.
+    { id: 'shunt', name: 'Shunt', line: 'Slide the cars to free the yellow one', icon: TRAY, since: '2026-11-18' },
+  ];
+  /* ios:cut */
+  const inApp = location.hostname === 'appassets.androidplatform.net';
+  // Where shared results link: short, as chat apps make a link of it. The app and
+  // the old addresses send people to the new one.
+  /* ios:end */
+  const SITE = /* ios:cut */ inApp || /\.workers\.dev$/.test(location.hostname) ? /* ios:end */ 'dailies.teloone.au' /* ios:cut */ : location.host /* ios:end */;
+
+  const $ = id => document.getElementById(id);
+  const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+  const store = {
+    get(k) { try { return JSON.parse(localStorage.getItem('hub.' + k)); } catch { return null; } },
+    set(k, v) { try { localStorage.setItem('hub.' + k, JSON.stringify(v)); } catch {} },
+  };
+  const dateFormat = new Intl.DateTimeFormat(navigator.language || 'en', { weekday: 'long', day: 'numeric', month: 'long' });
+  const shortDate = new Intl.DateTimeFormat(navigator.language || 'en', { weekday: 'short', day: 'numeric', month: 'short' });
+
+  // Lost, from what the game saved. Results saved before games said so go by
+  // their wording: each game's way of saying it lost.
+  const LOST = /^(Out of |Gave up|Lost,)|out of lives$|^\d+ of \d+ sorted$/;
+  const lostIt = r => (typeof r.lost === 'boolean' ? r.lost : LOST.test(r.text || ''));
+
+  let shownDay = '';
+  function render() {
+    const now = Clock.now(), day = now.toDateString();
+    let done = 0;
+    shownDay = day;
+    $('date').textContent = dateFormat.format(now);
+    $('games').replaceChildren(...GAMES.map(g => {
+      const result = store.get(g.id);
+      // A game begun today but not finished saves { date, started } until it is.
+      const today = !!result && result.date === day;
+      const played = today && !result.started;
+      if (played) done++;
+      const lost = played && lostIt(result);
+      const a = el('a', played ? (lost ? 'game done lost' : 'game done') : 'game');
+      a.href = `${g.id}/index.html`;
+      a.innerHTML = `<svg width="62" height="62" viewBox="0 0 64 64" fill="none" aria-hidden="true">${g.icon}</svg>`;
+      // Under the name, where it stands today: still to play, started, or how it went. What the game is, is said to a screen reader.
+      const line = el('span', '', played ? result.text : today ? 'Started' : '');
+      if (played) line.append(el('span', 'sr', lost ? ', lost' : ', played'));
+      else if (!today) line.append(el('span', 'sr', `To play. ${g.line}`));
+      a.append(el('b', '', g.name), line);
+      return a;
+    }));
+    const all = done === GAMES.length;
+    $('progress').replaceChildren(el('b', '', all ? 'All done' : `${done} of ${GAMES.length}`), all ? '' : ' played');
+    $('shareAll').disabled = !done;
+    drawDays(now, done);
+  }
+  // The record beside the day: the last week, a dot each.
+  const DAYS = 7;
+  function drawDays(now, done) {
+    // A day played and left from inside a game was never drawn here: its results, still saved, say so.
+    const key = dayKey(now), seen = resultDays(GAMES.map(g => store.get(g.id)));
+    const log = noteDay(store.get('days'), key, done, seen);
+    if (done || Object.keys(seen).some(k => k < key)) store.set('days', log);
+    const days = lastDays(log, key, DAYS), played = days.filter(Boolean).length, run = dayRun(log, key);
+    const box = $('days');
+    box.hidden = !played;
+    if (!played) return;
+    box.setAttribute('aria-label', `Played on ${played} of the last ${DAYS} days${run > 1 ? `, ${run} days in a row` : ''}`);
+    const keys = dayKeys(key, DAYS), since = GAMES.map(g => g.since);
+    box.replaceChildren(...days.map((n, i) => {
+      // Every game there was that day, which before Shunt came out was nine.
+      const sq = el('i', n >= gamesOn(keys[i], since) ? 'all' : n ? 'some' : '');
+      sq.setAttribute('aria-hidden', 'true');
+      return sq;
+    }));
+  }
+  // Today's results in one message (today.js).
+  function shareAll() {
+    // The page may have sat open past midnight: share the day it is now.
+    render();
+    const text = todayText(GAMES.map(g => [g.name, store.get(g.id)]), {
+      day: Clock.now().toDateString(), date: shortDate.format(Clock.now()).replace(/,/g, ''), total: GAMES.length,
+      dark: matchMedia('(prefers-color-scheme: dark)').matches, site: SITE,
+    });
+    if (!text) return;
+    /* ios:cut */ if (window.ladderApp) { /* ios:end */ showMenu(false); return toApp({ type: 'share', title: 'Dailies', text }); /* ios:cut */ } /* ios:end */
+    /* ios:cut */
+    if (navigator.share) { showMenu(false); return navigator.share({ text }).catch(() => {}); }
+    // Copied instead: the row says so before the menu goes
+    navigator.clipboard.writeText(text).then(() => {
+      $('shareLabel').textContent = 'Copied';
+      setTimeout(() => { $('shareLabel').textContent = 'Share today'; showMenu(false); }, 1100);
+    }, () => showMenu(false));
+    /* ios:end */
+  }
+  $('shareAll').addEventListener('click', shareAll);
+
+  // Coming back from a game, or back to the app on a new day.
+  addEventListener('pageshow', render);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) render(); });
+  addEventListener('clock', render);
+  setInterval(() => { if (!document.hidden && Clock.now().toDateString() !== shownDay) render(); }, 30000);
+
+  /* ios:cut */
+  // ---- Android app bridge (absent in a browser) ----
+  /* ios:end */
+  const app = window.ladderApp/* ios:cut */ || null/* ios:end */;
+  const about = $('aboutSheet');
+  function toApp(msg) {
+    /* ios:cut */
+    if (!app) return;
+    /* ios:end */
+    try { app.postMessage(JSON.stringify(msg)); } catch {}
+  }
+  /* ios:cut */
+  // selfUpdates is off until the app says otherwise: Play builds update through
+  // the store, so there About has the version and nothing to check.
+  /* ios:end */
+  let appVersion = ''/* ios:cut */, selfUpdates = false, updateReady = false, versionTimer = 0, updateVersion = '', updateSize = 0/* ios:end */;
+  // The app says which build it is.
+  /* ios:cut */
+  // The website's copy is stamped with its version when it is published.
+  const WEB_VERSION = '2.18.0';
+  /* ios:end */
+  function showVersion() {
+    const v = appVersion/* ios:cut */ || (WEB_VERSION.startsWith('__') ? '' : WEB_VERSION)/* ios:end */;
+    $('aboutVer').replaceChildren(el('span', '', 'Version'), el('span', '', v));
+    $('aboutVer').hidden = !v;
+  }
+  showVersion();
+  /* ios:cut */
+  // Not now holds for the version it was said to while the app stays open;
+  // Check for updates in About still opens the card.
+  const later = {
+    get() { try { return sessionStorage.getItem('updateLater') || ''; } catch { return ''; } },
+    set(v) { try { sessionStorage.setItem('updateLater', v); } catch {} },
+  };
+  // The menu's row says About, or that an update is waiting, with a dot on its button; the About page has the rest.
+  function showLabel() {
+    $('versionLabel').textContent = updateReady ? 'Update available' : 'About';
+    $('version').dataset.state = $('menuBtn').dataset.state = updateReady ? 'available' : '';
+    if (updateReady) showNote('Available');
+  }
+  function showNote(text) {
+    clearTimeout(versionTimer);
+    $('aboutNote').textContent = text;
+  }
+  function showUpdate(m) {
+    const show = (id, on) => { $(id).hidden = !on; };
+    $('updateCard').hidden = false;
+    if (m.state === 'available') {
+      updateVersion = m.version || updateVersion;
+      updateSize = m.size > 0 ? m.size : updateSize;
+      const notes = Array.isArray(m.notes) ? m.notes.filter(n => typeof n === 'string' && n).slice(0, 5) : [];
+      $('updateNotes').replaceChildren(...notes.map(n => el('li', '', n)));
+      show('updateNotes', notes.length > 0);
+    }
+    const view = {
+      available: { title: 'Update available', msg: '', actions: true, progress: false, go: 'Update' },
+      downloading: { title: 'Downloading update', msg: '', actions: false, progress: true },
+      installing: { title: 'Installing update', actions: false, progress: true, msg: 'Confirm on the next screen. The first time, Android asks you to allow installs from Dailies. Turn it on, then go back.' },
+      failed: { title: "Update didn't finish", msg: m.message || 'Something went wrong. Try again.', actions: true, progress: false, go: 'Try again' },
+    }[m.state];
+    if (!view) return;
+    $('updateTitle').textContent = view.title;
+    $('updateSub').textContent = [`Dailies ${updateVersion}`, updateSize ? `${(updateSize / 1e6).toFixed(1)} MB` : ''].filter(Boolean).join(' · ');
+    $('updateMsg').textContent = view.msg;
+    show('updateMsg', !!view.msg);
+    show('updateActions', view.actions);
+    show('updateProgress', view.progress);
+    if (view.go) $('updateGo').textContent = view.go;
+    if (view.progress) {
+      const p = m.state === 'installing' ? 100 : Math.round(Math.max(0, Math.min(1, m.progress || 0)) * 100);
+      $('updateBar').style.width = p + '%';
+      $('updatePct').textContent = p + '%';
+    }
+  }
+  /* ios:end */
+  /* ios:cut */
+  if (app) {
+  /* ios:end */
+    app.onmessage = e => {
+      let m;
+      try { m = JSON.parse(e.data); } catch { return; }
+      if (m.type === 'info'/* ios:cut */ && m.platform === 'ios'/* ios:end */) {
+        // Notifications switched off in Settings: the reminder is off too.
+        if (!m.notifications && store.get('remind')) store.set('remind', false);
+        if (m.notifications) remindBlocked = false;
+        // Asked for, refused, then allowed in Settings: it's on without another tap.
+        if (m.notifications && store.get('remindWanted')) store.set('remind', true);
+        if (m.notifications) store.set('remindWanted', false);
+        showRemind();
+      }
+      if (m.type === 'notifications') {
+        if (m.allowed) store.set('remind', true);
+        store.set('remindWanted', !m.allowed);
+        remindBlocked = !m.allowed;
+        showRemind();
+      }
+      if (m.type === 'info') {
+        appVersion = m.version;
+        /* ios:cut */
+        selfUpdates = m.updates === true;
+        /* ios:end */
+        showVersion();
+        /* ios:cut */
+        $('aboutCheck').hidden = !selfUpdates;
+        showLabel();
+      } else if (m.type === 'updateStatus' && selfUpdates) {
+        if (m.state === 'available') { updateReady = true; return showLabel(); }
+        showNote(m.state === 'latest' ? 'Up to date' : "Couldn't check");
+        versionTimer = setTimeout(() => showNote(''), 4000);
+      } else if (m.type === 'update' && selfUpdates) {
+        const away = $('updateCard').hidden;
+        if (m.state === 'available') { updateReady = true; showLabel(); }
+        showUpdate(m);
+        // Put off: the card is filled in for the link, but stays out of the way.
+        if (m.state === 'available' && away && m.version && m.version === later.get()) $('updateCard').hidden = true;
+        /* ios:end */
+      }
+    };
+    /* ios:cut */
+    $('updateGo').addEventListener('click', () => { showUpdate({ state: 'downloading', progress: 0 }); toApp({ type: 'installUpdate' }); });
+    $('updateLater').addEventListener('click', () => { $('updateCard').hidden = true; later.set(updateVersion); });
+    $('aboutCheck').addEventListener('click', () => {
+      if (updateReady) { about.close(); $('updateCard').hidden = false; scrollTo({ top: 0, behavior: 'smooth' }); return; }
+      showNote('Checking…');
+      toApp({ type: 'checkUpdate' });
+    });
+  }
+  /* ios:end */
+
+  // ---- About ----
+  /* ios:cut */
+  // Android Back closes the sheet, as it does a game's.
+  /* ios:end */
+  const tellBack = () => toApp({ type: 'back', enabled: about.open });
+  window.ladderBack = () => { if (!about.open) return false; about.close(); return true; };
+  const openAbout = () => { if (!about.open) about.showModal(); tellBack(); };
+  $('version').addEventListener('click', () => { showMenu(false); openAbout(); });
+
+  // ---- More ----
+  const menu = $('menu');
+  function showMenu(on) {
+    menu.hidden = !on;
+    $('menuBtn').setAttribute('aria-expanded', on);
+  }
+  $('menuBtn').addEventListener('click', () => {
+    showMenu(menu.hidden);
+  });
+  // A tap anywhere else, or Escape, puts it away
+  // A tap anywhere else puts the menu away, and like the phone's own menus that tap does nothing else.
+  let swallow = false;
+  document.addEventListener('pointerdown', e => {
+    swallow = false;
+    if (menu.hidden || e.target.closest('#menu, #menuBtn')) return;
+    showMenu(false);
+    swallow = true;
+    e.stopPropagation();
+  }, true);
+  for (const type of ['pointerup', 'pointercancel']) document.addEventListener(type, () => setTimeout(() => { swallow = false; }), true);
+  document.addEventListener('click', e => { if (swallow) { swallow = false; e.stopPropagation(); e.preventDefault(); } }, true);
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && !menu.hidden) { showMenu(false); $('menuBtn').focus(); } });
+  about.addEventListener('click', e => { if (e.target === about || e.target.closest('[data-close]')) about.close(); });
+  about.addEventListener('close', tellBack);
+
+  // The 6 pm reminder/* ios:cut */, in the iPhone app/* ios:end */: the app plans it (window.ladderRemind).
+  // Notifications were refused: only the phone's Settings can turn them back on.
+  let remindBlocked = false;
+  function showRemind() {
+    const on = !!store.get('remind');
+    $('remindToggle').hidden = false;
+    // Refused: the row leads to the phone's Settings instead
+    $('remindText').textContent = !on && remindBlocked ? 'Turn on notifications' : 'Remind me at 6 pm';
+    $('remindToggle').setAttribute('aria-checked', on);
+    /* ios:cut */ if (window.ladderRemind) /* ios:end */ window.ladderRemind();
+  }
+  $('remindToggle').addEventListener('click', () => {
+    if (!store.get('remind')) return toApp({ type: remindBlocked ? 'openSettings' : 'askNotifications' });
+    store.set('remind', false);
+    showRemind();
+  });
+
+  // ---- boot ----
+  /* ios:cut */
+  $('getApp').hidden = !!app || inApp || !/Android/.test(navigator.userAgent);
+  /* ios:end */
+  render();
+  toApp({ type: 'hello' });
+  // Back in front: notifications may have been switched in Settings meanwhile.
+  window.ladderAsk = () => toApp({ type: 'hello' });
+})();
+</script>
+</body>
+</html>
